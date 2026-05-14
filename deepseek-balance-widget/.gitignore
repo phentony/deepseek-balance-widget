@@ -1,0 +1,9 @@
+target/
+*.exe
+dist/
+*.spec
+__pycache__/
+*.pyc
+.superpowers/
+.claude/
+docs/
