@@ -40,12 +40,23 @@ class SettingsDialog(QDialog):
         cancel_btn.clicked.connect(self.reject)
         btn_layout.addWidget(cancel_btn)
 
-        save_btn = QPushButton("Save")
-        save_btn.setDefault(True)
-        save_btn.clicked.connect(self.accept)
-        btn_layout.addWidget(save_btn)
+        self.save_btn = QPushButton("Save")
+        self.save_btn.setDefault(True)
+        self.save_btn.clicked.connect(self.accept)
+        btn_layout.addWidget(self.save_btn)
 
         layout.addLayout(btn_layout)
+
+        self.key_input.textChanged.connect(self._validate)
+        self._validate()
+
+    def _validate(self):
+        has_key = bool(self.key_input.text().strip())
+        self.save_btn.setEnabled(has_key)
+        if not has_key:
+            self.key_input.setStyleSheet("border: 1px solid #f38ba8;")
+        else:
+            self.key_input.setStyleSheet("")
 
     def get_api_key(self):
         return self.key_input.text().strip()
