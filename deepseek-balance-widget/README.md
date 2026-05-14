@@ -14,12 +14,12 @@
 
 ### 下载 exe（无需 Python）
 
-从 [Releases](https://github.com/phentony/deepseek-balance-widget/releases) 下载 `DeepSeek-Balance-Widget.exe`，双击运行。
+从 [Releases](https://github.com/hkdatahub/deepseek-balance-widget/releases) 下载 `DeepSeek-Balance-Widget.exe`，双击运行。
 
 ### 从源码运行
 
 ```bash
-git clone https://github.com/phentony/deepseek-balance-widget.git
+git clone https://github.com/hkdatahub/deepseek-balance-widget.git
 cd deepseek-balance-widget
 pip install -r requirements.txt
 python main.py
