@@ -1,10 +1,12 @@
 # widget.py
+from datetime import datetime
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QFrame, QGridLayout,
+    QGridLayout,
 )
-from PySide6.QtCore import Qt, QPoint, QTimer
-from PySide6.QtGui import QFont, QMouseEvent, QColor, QPalette
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QMouseEvent, QColor, QPalette
 
 
 class BalanceWidget(QWidget):
@@ -97,13 +99,17 @@ class BalanceWidget(QWidget):
         self._status_label.setText("OK")
         self._status_label.setStyleSheet("color: #a6e3a1; font-size: 11px;")
 
-        from datetime import datetime
         self._updated_label.setText(f"Updated {datetime.now().strftime('%H:%M:%S')}")
+        self._updated_label.setStyleSheet("color: #45475a; font-size: 10px;")
 
     def show_error(self, message):
         self._status_label.setText("ERROR")
         self._status_label.setStyleSheet("color: #f38ba8; font-size: 11px;")
+        self._balance_label.setStyleSheet("color: #585b70; font-size: 36px; font-weight: 700;")
+        self._granted_label.setStyleSheet("color: #585b70; font-size: 16px; font-weight: 600;")
+        self._topped_label.setStyleSheet("color: #585b70; font-size: 16px; font-weight: 600;")
         self._updated_label.setText(message)
+        self._updated_label.setStyleSheet("color: #f38ba8; font-size: 10px;")
 
     def mousePressEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton:

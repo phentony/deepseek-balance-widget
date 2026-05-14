@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+.superpowers/
+.claude/
+dist/
+build/
+*.spec

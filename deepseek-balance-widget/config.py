@@ -13,7 +13,10 @@ class Config:
 
     def _load(self):
         if self._file.exists():
-            self._data = json.loads(self._file.read_text(encoding="utf-8"))
+            try:
+                self._data = json.loads(self._file.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                self._data = {}
 
     def _save(self):
         self._file.write_text(json.dumps(self._data, indent=2), encoding="utf-8")

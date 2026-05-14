@@ -44,6 +44,7 @@ def fetch_balance(api_key):
     if resp.status_code == 401:
         raise BalanceError("invalid API key (401)")
     if resp.status_code != 200:
-        raise BalanceError(f"API error: HTTP {resp.status_code}")
+        detail = resp.text[:200] if resp.text else ""
+        raise BalanceError(f"API error: HTTP {resp.status_code}" + (f" — {detail}" if detail else ""))
 
     return BalanceInfo.from_response(resp.json())

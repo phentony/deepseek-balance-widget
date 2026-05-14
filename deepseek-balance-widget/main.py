@@ -52,8 +52,11 @@ def main():
     timer.timeout.connect(refresh)
     timer.start(config.get_refresh_interval() * 1000)
 
+    def on_settings_changed():
+        timer.setInterval(config.get_refresh_interval() * 1000)
+
     # System tray
-    tray = TrayManager(widget, config, refresh_callback=refresh)
+    tray_ = TrayManager(widget, config, refresh_callback=refresh, on_settings_changed=on_settings_changed)
 
     widget.show()
     sys.exit(app.exec())

@@ -17,10 +17,11 @@ def _make_tray_icon():
 
 
 class TrayManager:
-    def __init__(self, widget, config, refresh_callback=None):
+    def __init__(self, widget, config, refresh_callback=None, on_settings_changed=None):
         self._widget = widget
         self._config = config
         self._refresh_callback = refresh_callback
+        self._on_settings_changed = on_settings_changed
 
         self._tray = QSystemTrayIcon()
         self._tray.setIcon(_make_tray_icon())
@@ -67,6 +68,8 @@ class TrayManager:
         if dlg.exec():
             self._config.set_api_key(dlg.get_api_key())
             self._config.set_refresh_interval(dlg.get_refresh_interval())
+            if self._on_settings_changed:
+                self._on_settings_changed()
             if self._refresh_callback:
                 self._refresh_callback()
 
