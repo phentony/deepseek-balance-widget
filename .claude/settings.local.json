@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(superpowers:brainstorming)",
+      "Bash(python -m pytest tests/test_config.py -v)",
+      "Bash(git commit *)",
+      "Bash(python -m pytest tests/test_balance_api.py -v)",
+      "Bash(git add *)",
+      "Bash(pip install *)",
+      "Bash(export PATH=\"$HOME/.cargo/bin:$PATH\")",
+      "Bash(cargo build *)",
+      "Bash(git init *)",
+      "Bash(git config *)",
+      "Bash(gh auth *)",
+      "Bash(git push *)",
+      "Bash(taskkill /f /im deepseek-balance-widget.exe)"
+    ]
+  }
+}
