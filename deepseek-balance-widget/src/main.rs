@@ -17,11 +17,12 @@ use chrono::Local;
 struct ConfigData {
     api_key: Option<String>,
     refresh_interval: u64,
+    display_currency: String,
 }
 
 impl Default for ConfigData {
     fn default() -> Self {
-        Self { api_key: None, refresh_interval: 300 }
+        Self { api_key: None, refresh_interval: 300, display_currency: "USD".into() }
     }
 }
 
@@ -77,7 +78,7 @@ struct BalanceInfo {
     topped_up_balance: f64,
 }
 
-fn fetch_balance(api_key: &str) -> Result<BalanceInfo, String> {
+fn fetch_balance(api_key: &str) -> Result<Vec<BalanceInfo>, String> {
     let client = Client::new();
     let resp = client
         .get("https://api.deepseek.com/user/balance")
@@ -98,20 +99,14 @@ fn fetch_balance(api_key: &str) -> Result<BalanceInfo, String> {
     }
 
     let data: BalanceResponse = resp.json().map_err(|e| format!("parse error: {}", e))?;
-    let bi = data.balance_infos.iter()
-        .find(|b| b.total_balance.parse::<f64>().unwrap_or(0.0) > 0.0)
-        .unwrap_or(&data.balance_infos[0]);
-
-    Ok(BalanceInfo {
+    Ok(data.balance_infos.iter().map(|bi| BalanceInfo {
         is_available: data.is_available,
         currency: bi.currency.clone(),
         total_balance: bi.total_balance.parse().unwrap_or(0.0),
         granted_balance: bi.granted_balance.parse().unwrap_or(0.0),
         topped_up_balance: bi.topped_up_balance.parse().unwrap_or(0.0),
-    })
+    }).collect())
 }
-
-// ── Tray Messages ───────────────────────────────────────────
 
 enum TrayCmd {
     Toggle,
@@ -124,7 +119,7 @@ enum TrayCmd {
 
 struct DeepSeekApp {
     config: ConfigData,
-    balance: Option<BalanceInfo>,
+    balance: Vec<BalanceInfo>,
     error: Option<String>,
     last_update: Option<chrono::DateTime<chrono::Local>>,
     next_refresh: f64,
@@ -140,7 +135,7 @@ impl DeepSeekApp {
     fn new(config: ConfigData, tray_rx: mpsc::Receiver<TrayCmd>, first_run: bool) -> Self {
         let mut app = Self {
             config,
-            balance: None,
+            balance: Vec::new(),
             error: None,
             last_update: None,
             next_refresh: 0.0,
@@ -160,8 +155,8 @@ impl DeepSeekApp {
     fn do_refresh(&mut self) {
         if let Some(ref key) = self.config.api_key {
             match fetch_balance(key) {
-                Ok(info) => {
-                    self.balance = Some(info);
+                Ok(infos) => {
+                    self.balance = infos;
                     self.error = None;
                     self.last_update = Some(Local::now());
                 }
@@ -208,17 +203,13 @@ impl eframe::App for DeepSeekApp {
                 .resizable(false)
                 .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
                 .show(ctx, |ui| {
-                    ui.set_min_width(300.0);
-                    ui.horizontal(|ui| {
-                        ui.label("API Key: ");
-                        ui.add_sized([180.0, 20.0], egui::TextEdit::singleline(&mut self.api_key_input).password(true));
-                    });
+                    ui.set_min_width(240.0);
+                    ui.label("API Key:");
+                    ui.add_sized([220.0, 20.0], egui::TextEdit::singleline(&mut self.api_key_input).password(true));
                     ui.add_space(8.0);
-                    ui.horizontal(|ui| {
-                        ui.label("Refresh (seconds, 30-3600): ");
-                        ui.add_sized([50.0, 20.0], egui::TextEdit::singleline(&mut self.interval_input));
-                    });
-                    ui.add_space(16.0);
+                    ui.label("Interval (30-3600s):");
+                    ui.add_sized([60.0, 20.0], egui::TextEdit::singleline(&mut self.interval_input));
+                    ui.add_space(14.0);
                     ui.horizontal(|ui| {
                         if ui.button("Cancel").clicked() {
                             self.show_settings = false;
@@ -257,8 +248,20 @@ impl eframe::App for DeepSeekApp {
         egui::CentralPanel::default().frame(panel_frame).show(ctx, |ui| {
             // Title bar
             ui.horizontal(|ui| {
+                let title = if let Some(ref key) = self.config.api_key {
+                    let k = key.trim();
+                    if k.len() > 15 {
+                        format!("DeepSeek ({}...{})", &k[..8], &k[k.len()-4..])
+                    } else if !k.is_empty() {
+                        format!("DeepSeek ({})", k)
+                    } else {
+                        "DeepSeek".into()
+                    }
+                } else {
+                    "DeepSeek".into()
+                };
                 ui.label(
-                    egui::RichText::new("DeepSeek")
+                    egui::RichText::new(title)
                         .color(egui::Color32::from_rgb(130, 130, 130))
                         .size(11.0),
                 );
@@ -270,7 +273,18 @@ impl eframe::App for DeepSeekApp {
                         .fill(egui::Color32::from_rgb(70, 30, 30))
                         .small()
                     ).clicked() {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+                        std::process::exit(0);
+                    }
+                    if ui.add(
+                        egui::Button::new(
+                            egui::RichText::new("\u{2699}").color(egui::Color32::from_rgb(180, 180, 180)).size(14.0)
+                        )
+                        .fill(egui::Color32::from_rgb(50, 50, 50))
+                        .small()
+                    ).clicked() {
+                        self.api_key_input = self.config.api_key.clone().unwrap_or_default();
+                        self.interval_input = self.config.refresh_interval.to_string();
+                        self.show_settings = true;
                     }
                 });
             });
@@ -280,7 +294,7 @@ impl eframe::App for DeepSeekApp {
                 ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
             }
 
-            ui.add_space(6.0);
+            ui.add_space(4.0);
 
             // Error
             if let Some(ref err) = self.error {
@@ -289,27 +303,26 @@ impl eframe::App for DeepSeekApp {
                         .color(egui::Color32::from_rgb(255, 90, 90))
                         .size(10.0),
                 );
-                ui.add_space(4.0);
+                ui.add_space(2.0);
             }
 
-            // Balance
-            if let Some(ref info) = self.balance {
-                let color = if info.total_balance > 1.0 {
+            // Balance — find API entry matching selected currency, fallback to first
+            let target = &self.config.display_currency;
+            let info = self.balance.iter().find(|b| b.currency == *target)
+                .or_else(|| self.balance.first());
+            if let Some(info) = info {
+                let symbol = if info.currency == "USD" { "$" } else { "\u{00a5}" };
+                let color = if info.total_balance > 0.01 {
                     egui::Color32::from_rgb(100, 220, 100)
                 } else {
                     egui::Color32::from_rgb(255, 90, 90)
                 };
                 ui.label(
-                    egui::RichText::new(format!("{:.2}", info.total_balance))
+                    egui::RichText::new(format!("{}{:.2}", symbol, info.total_balance))
                         .color(color)
                         .size(40.0),
                 );
-                ui.label(
-                    egui::RichText::new(&info.currency)
-                        .color(egui::Color32::from_rgb(140, 140, 140))
-                        .size(12.0),
-                );
-                ui.add_space(8.0);
+                ui.add_space(6.0);
                 ui.columns(2, |cols| {
                     cols[0].label(
                         egui::RichText::new("Granted")
@@ -317,7 +330,7 @@ impl eframe::App for DeepSeekApp {
                             .size(11.0),
                     );
                     cols[0].label(
-                        egui::RichText::new(format!("{:.2}", info.granted_balance))
+                        egui::RichText::new(format!("{}{:.2}", symbol, info.granted_balance))
                             .color(egui::Color32::from_rgb(180, 180, 180))
                             .size(17.0),
                     );
@@ -327,7 +340,7 @@ impl eframe::App for DeepSeekApp {
                             .size(11.0),
                     );
                     cols[1].label(
-                        egui::RichText::new(format!("{:.2}", info.topped_up_balance))
+                        egui::RichText::new(format!("{}{:.2}", symbol, info.topped_up_balance))
                             .color(egui::Color32::from_rgb(180, 180, 180))
                             .size(17.0),
                     );
@@ -339,6 +352,28 @@ impl eframe::App for DeepSeekApp {
                         .size(40.0),
                 );
             }
+
+            // Currency toggle
+            ui.add_space(6.0);
+            ui.horizontal(|ui| {
+                let sel_usd = self.config.display_currency == "USD";
+                if ui.add_sized([38.0, 18.0],
+                    egui::Button::new(egui::RichText::new("$ USD").size(10.0).color(if sel_usd { egui::Color32::WHITE } else { egui::Color32::from_rgb(140, 140, 140) }))
+                        .fill(if sel_usd { egui::Color32::from_rgb(50, 80, 50) } else { egui::Color32::from_rgb(35, 35, 35) })
+                ).clicked() {
+                    self.config.display_currency = "USD".into();
+                    save_config(&self.config);
+                }
+                ui.add_space(4.0);
+                let sel_cny = self.config.display_currency == "CNY";
+                if ui.add_sized([38.0, 18.0],
+                    egui::Button::new(egui::RichText::new("\u{00a5} CNY").size(10.0).color(if sel_cny { egui::Color32::WHITE } else { egui::Color32::from_rgb(140, 140, 140) }))
+                        .fill(if sel_cny { egui::Color32::from_rgb(50, 80, 50) } else { egui::Color32::from_rgb(35, 35, 35) })
+                ).clicked() {
+                    self.config.display_currency = "CNY".into();
+                    save_config(&self.config);
+                }
+            });
 
             // Footer
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
